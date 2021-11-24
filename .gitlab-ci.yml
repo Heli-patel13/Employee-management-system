@@ -1,0 +1,72 @@
+variables:
+  EXAMPLE_VARIABLE: "Example"
+  
+image: node:latest
+
+before_script:
+
+stages:
+# These are the three states we want, building the app, testing it by
+# executing unit tests and checking the results, and finally if this
+  - build
+  # You will need to define this stage somewhere below.
+  - test
+  # I will provide this example for you below.
+  - deploy_develop
+  - deploy_prod
+
+buildStep:
+  image: maven:3-jdk-8
+  stage: build
+  tags:
+    - dalfcs_docker_kvm
+  artifacts:
+    paths:
+    - group10/target
+  script:
+    mvn clean install
+
+testStep:
+  image: maven:3-jdk-8
+  stage: test
+  tags:
+    - dalfcs_docker_kvm
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - group10/target/surefire-reports/TEST-*.xml
+  script:
+    mvn verify
+
+deployStepDevelop:
+  type: deploy
+  stage: deploy_develop
+  image: ruby:latest
+  script:
+    - cd /builds/courses/2021-summer/csci-5308/group10/
+    - gem install dpl --source http://rubygems.org
+    - dpl --provider=heroku --app=$HEROKU_APP_TEST --api-key=$HEROKU_API_KEY
+  environment:
+    name: staging
+    url: https://employee-management-g10-test.herokuapp.com/
+  only:
+    - develop
+  tags:
+    - dalfcs_gitlab_docker_ci
+
+deployStepProd:
+  type: deploy
+  stage: deploy_prod
+  image: ruby:latest
+  script:
+    - cd /builds/courses/2021-summer/csci-5308/group10/
+    - gem install dpl --source http://rubygems.org
+    - dpl --provider=heroku --app=$HEROKU_APP_PROD --api-key=$HEROKU_API_KEY
+  environment:
+    name: production
+    url: https://employee-management-g10-prod.herokuapp.com/
+  only:
+    - master
+  tags:
+    - dalfcs_gitlab_docker_ci
